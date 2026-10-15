@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: lms-container
-        image: YOUR_DOCKERHUB_USERNAME/lms-portal:latest
+        image: shriram1106/lms-portal:latest
         ports:
         - containerPort: 80
         readinessProbe:
