@@ -20,11 +20,11 @@ jobs:
 
     - name: Build and Push Docker Image
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/lms-portal:latest .
-        docker push ${{ secrets.DOCKER_USERNAME }}/lms-portal:latest
+        docker build -t shriram1106/lms-portal:latest .
+        docker push shriram1106/lms-portal:latest
 
     - name: Initialize Kubernetes Environment
-      uses: medoot/setup-minikube@v2
+      uses: medyagh/setup-minikube@master
 
     - name: Deploy Manifests to Active Cluster
       run: |
@@ -32,13 +32,13 @@ jobs:
 
     - name: Verify 2 Replicas Running State
       run: |
-        kubectl rollout status deployment/lms-deployment --timeout=45s
+        kubectl rollout status deployment/lms-deployment --timeout=60s
         kubectl get pods -l app=lms
 
     - name: Simulate Faulty Rollout and Trigger Auto-Rollback
       run: |
         echo "Applying deliberate broken image deployment to simulate a crash..."
-        kubectl set image deployment/lms-deployment lms-container=${{ secrets.DOCKER_USERNAME }}/lms-portal:faulty-broken-tag
+        kubectl set image deployment/lms-deployment lms-container=shriram1106/lms-portal:faulty-broken-tag
         
         echo "Monitoring deployment stability..."
         if ! kubectl rollout status deployment/lms-deployment --timeout=20s; then
@@ -47,3 +47,4 @@ jobs:
           kubectl rollout status deployment/lms-deployment
           echo "SUCCESS: Cluster successfully recovered and running stable build!"
         fi
+
