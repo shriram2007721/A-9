@@ -1,0 +1,49 @@
+name: CI/CD Pipeline & Deployment
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository Files
+      uses: actions/checkout@v4
+
+    - name: Log in to Docker Hub Account
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and Push Docker Image
+      run: |
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/lms-portal:latest .
+        docker push ${{ secrets.DOCKER_USERNAME }}/lms-portal:latest
+
+    - name: Initialize Kubernetes Environment
+      uses: medoot/setup-minikube@v2
+
+    - name: Deploy Manifests to Active Cluster
+      run: |
+        kubectl apply -f deployment.yaml
+
+    - name: Verify 2 Replicas Running State
+      run: |
+        kubectl rollout status deployment/lms-deployment --timeout=45s
+        kubectl get pods -l app=lms
+
+    - name: Simulate Faulty Rollout and Trigger Auto-Rollback
+      run: |
+        echo "Applying deliberate broken image deployment to simulate a crash..."
+        kubectl set image deployment/lms-deployment lms-container=${{ secrets.DOCKER_USERNAME }}/lms-portal:faulty-broken-tag
+        
+        echo "Monitoring deployment stability..."
+        if ! kubectl rollout status deployment/lms-deployment --timeout=20s; then
+          echo "WARNING: Health checks failed! Initiating automatic recovery rollback..."
+          kubectl rollout undo deployment/lms-deployment
+          kubectl rollout status deployment/lms-deployment
+          echo "SUCCESS: Cluster successfully recovered and running stable build!"
+        fi
